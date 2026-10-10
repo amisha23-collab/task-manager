@@ -14,8 +14,6 @@ A full-stack task manager built for the KoderTroop assessment. Users register, l
 - Responsive React UI with loading, empty and error states, form validation, and delete confirmation
 - In-app notifications for tasks that are due soon or overdue, with an inbox and read/unread state
 - Optional email reminders can be configured with SMTP environment settings; email delivery is not enabled until those settings are supplied
-- In-app notifications for tasks due soon and overdue tasks, with an inbox and read/unread state
-- Optional email reminders require SMTP configuration; email delivery is not configured by default
 - Redis or Elasticsearch down? The app keeps working (see [Error Handling](#error-handling))
 
 ## Technology Stack
@@ -54,7 +52,7 @@ task-manager/
       config/         env.js (validated config), db.js (Mongo connection)
       models/         User.js, Task.js, Notification.js (Mongoose)
       graphql/        typeDefs.js, resolvers/ (auth.js, task.js)
-      services/       authService.js, taskService.js, notificationService.js, reminderService.js, notificationService.js, reminderService.js
+      services/       authService.js, taskService.js, notificationService.js, reminderService.js
       auth/           jwt.js, context.js (reads token), guard.js (requireAuth)
       redis/          client.js, taskCache.js
       elasticsearch/  client.js, taskSearch.js
