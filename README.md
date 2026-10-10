@@ -12,6 +12,10 @@ A full-stack task manager built for the KoderTroop assessment. Users register, l
 - MongoDB and Elasticsearch stay in sync on create, update and delete
 - Filter by status (all / to do / done), sort (newest, oldest, title), search with debounce
 - Responsive React UI with loading, empty and error states, form validation, and delete confirmation
+- In-app notifications for tasks that are due soon or overdue, with an inbox and read/unread state
+- Optional email reminders can be configured with SMTP environment settings; email delivery is not enabled until those settings are supplied
+- In-app notifications for tasks due soon and overdue tasks, with an inbox and read/unread state
+- Optional email reminders require SMTP configuration; email delivery is not configured by default
 - Redis or Elasticsearch down? The app keeps working (see [Error Handling](#error-handling))
 
 ## Technology Stack
@@ -48,9 +52,9 @@ task-manager/
   backend/
     src/
       config/         env.js (validated config), db.js (Mongo connection)
-      models/         User.js, Task.js (Mongoose)
+      models/         User.js, Task.js, Notification.js (Mongoose)
       graphql/        typeDefs.js, resolvers/ (auth.js, task.js)
-      services/       authService.js, taskService.js
+      services/       authService.js, taskService.js, notificationService.js, reminderService.js, notificationService.js, reminderService.js
       auth/           jwt.js, context.js (reads token), guard.js (requireAuth)
       redis/          client.js, taskCache.js
       elasticsearch/  client.js, taskSearch.js
@@ -63,7 +67,7 @@ task-manager/
   frontend/
     src/
       components/     TaskForm, TaskItem, TaskToolbar, ConfirmDialog, Alert, ...
-      pages/          LoginPage, RegisterPage, DashboardPage
+      pages/          LoginPage, RegisterPage, DashboardPage, profile and notification pages
       context/        AuthContext.jsx
       hooks/          useAuth, useDebounce, useTaskActions
       graphql/        operations.js (all queries and mutations)
@@ -84,6 +88,20 @@ Create real `.env` files from the examples. They are git-ignored, so secrets are
 ```bash
 cp backend/.env.example backend/.env
 cp frontend/.env.example frontend/.env
+```
+
+**PowerShell (Windows):**
+
+```powershell
+Copy-Item backend/.env.example backend/.env
+Copy-Item frontend/.env.example frontend/.env
+```
+
+On Windows PowerShell, use:
+
+```powershell
+Copy-Item backend/.env.example backend/.env
+Copy-Item frontend/.env.example frontend/.env
 ```
 
 **backend/.env**
@@ -172,8 +190,8 @@ query { me { id name email } }
 # Create
 mutation { createTask(input: { title: "Write report", description: "Q3 numbers" }) { id title completed createdAt } }
 
-# List (Redis cached)
-query { getTasks { id title description completed createdAt updatedAt } }
+# List (Redis cached; getTasks returns a TaskList object)
+query { getTasks { tasks { id title description completed createdAt updatedAt } } }
 
 # Update (any of title, description, completed)
 mutation { updateTask(id: "TASK_ID", input: { completed: true }) { id completed updatedAt } }
@@ -220,6 +238,12 @@ Try it: run `getTasks` twice, then `docker compose exec redis redis-cli` and `GE
 - Writes use `refresh: wait_for`, so a task is searchable right after the mutation returns.
 - **Resync:** if Elasticsearch was down during some changes, run `cd backend && npm run reindex` to rebuild the index from MongoDB.
 
+## In-App Notifications and Reminders
+
+The app includes a notification flow for tasks that are approaching their due time or are overdue. Reminder processing creates user-specific notification records in MongoDB, and the frontend provides an inbox where a signed-in user can view notifications and mark them as read. Notification queries and updates are protected and scoped to the current user.
+
+Email reminders are optional and require valid SMTP configuration in the backend environment. Without SMTP settings, use the in-app notification inbox; do not assume email delivery is active.
+
 ## Error Handling
 
 - Input is validated on the frontend (instant feedback) and again on the backend (never trust the client). Failures return `BAD_USER_INPUT` with a readable message.
@@ -247,6 +271,32 @@ Manual end-to-end check (with Docker services running):
 4. Edit, complete and delete a task; the list and search results update.
 5. Stop Redis (`docker compose stop redis`) and Elasticsearch; the list still loads, search shows a friendly error.
 
+## Notifications and Reminders
+
+The application supports in-app reminders for tasks that are due soon and tasks that are overdue. Notifications are stored in MongoDB and scoped to the authenticated user.
+
+- **Due soon:** creates a `DUE_SOON` notification for an approaching task deadline.
+- **Overdue:** creates an `OVERDUE` notification for a task whose deadline has passed.
+- **Inbox:** the frontend displays notifications and supports marking them as read.
+- **Duplicate prevention:** stable reminder keys prevent the same reminder event from being inserted repeatedly.
+- **Email:** delivery is optional and requires SMTP configuration. It is not enabled automatically when SMTP settings are absent.
+
+To verify notifications, log in to the frontend and use Apollo Sandbox at `http://localhost:4000/graphql` with the request header `Authorization: Bearer <your-token>`:
+
+```graphql
+query {
+  notifications(unreadOnly: false) {
+    id
+    title
+    message
+    type
+    readAt
+  }
+}
+```
+
+Never commit real JWTs, SMTP passwords, or `.env` files. Use the example environment files as templates.
+
 ## GitHub Setup
 
 ```bash
@@ -270,7 +320,7 @@ git push -u origin main
 - **JWT in localStorage:** simple for a single-page app. Trade-off: scripts on the page could read it, so a production app might prefer httpOnly cookies.
 - **Context API for auth:** only the user and login state are shared, so Redux would be overkill.
 - **Apollo Client with `refetchQueries`:** after any change the visible list is reloaded from the server, so the UI never drifts.
-- **No bonus features:** the focus is a complete, correct core. Ideas for next steps: pagination, priority, due dates, Redis rate limiting.
+- **Implemented extension:** in-app due-soon and overdue notifications are included. Email delivery depends on optional SMTP configuration. Further possible extensions include pagination, task priorities, and profile management.
 
 ## Assessment Checklist
 
@@ -305,4 +355,6 @@ git push -u origin main
 | Form validation and error handling | Yes | `utils/validation.js`, `validators.js` |
 | Setup docs incl. Redis and Elasticsearch | Yes | This README, `docker-compose.yml` |
 | Documented decisions | Yes | Design Decisions section |
-| Bonus features | Not done | Optional |
+| In-app due-soon / overdue notifications | Yes | Notification model/service and frontend notification inbox |
+| Email reminders | Optional configuration | Requires valid SMTP settings; not enabled by default |
+| Pagination / priorities | Not documented as implemented | Optional future extensions |
