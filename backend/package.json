@@ -1,0 +1,29 @@
+{
+  "name": "task-manager-backend",
+  "version": "1.0.0",
+  "description": "GraphQL API for the task management app (Express, MongoDB, Redis, Elasticsearch, JWT)",
+  "type": "module",
+  "main": "src/server.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "node --test",
+    "reindex": "node scripts/reindex.js"
+  },
+  "dependencies": {
+    "@apollo/server": "^4.11.0",
+    "@elastic/elasticsearch": "^8.15.0",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0",
+    "graphql": "^16.9.0",
+    "ioredis": "^5.4.1",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.7.0",
+    "nodemailer": "^10.0.16"
+  }
+}
