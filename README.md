@@ -95,13 +95,6 @@ Copy-Item backend/.env.example backend/.env
 Copy-Item frontend/.env.example frontend/.env
 ```
 
-On Windows PowerShell, use:
-
-```powershell
-Copy-Item backend/.env.example backend/.env
-Copy-Item frontend/.env.example frontend/.env
-```
-
 **backend/.env**
 
 | Variable | Default | Meaning |
@@ -145,7 +138,7 @@ Linux note: if Elasticsearch exits immediately, run `sudo sysctl -w vm.max_map_c
 ## Installation
 
 ```bash
-git clone <your-repo-url> task-manager
+git clone https://github.com/amisha23-collab/task-manager.git
 cd task-manager
 
 docker compose up -d            # MongoDB + Redis + Elasticsearch
@@ -185,14 +178,51 @@ mutation { login(email: "ami@example.com", password: "password123") { token user
 # Current user
 query { me { id name email } }
 
-# Create
-mutation { createTask(input: { title: "Write report", description: "Q3 numbers" }) { id title completed createdAt } }
+# Create a task with priority
+mutation {
+  createTask(input: {
+    title: "Write report"
+    description: "Q3 numbers"
+    priority: HIGH
+  }) {
+    id
+    title
+    description
+    priority
+    completed
+    dueDate
+    createdAt
+  }
+}
 
-# List (Redis cached; getTasks returns a TaskList object)
-query { getTasks { tasks { id title description completed createdAt updatedAt } } }
+# List tasks, including priority
+query {
+  getTasks {
+    tasks {
+      id
+      title
+      description
+      priority
+      completed
+      dueDate
+      createdAt
+      updatedAt
+    }
+  }
+}
 
-# Update (any of title, description, completed)
-mutation { updateTask(id: "TASK_ID", input: { completed: true }) { id completed updatedAt } }
+# Update a task's priority
+mutation {
+  updateTask(
+    id: "TASK_ID"
+    input: { priority: LOW }
+  ) {
+    id
+    title
+    priority
+    updatedAt
+  }
+}
 
 # Delete
 mutation { deleteTask(id: "TASK_ID") { id } }
@@ -295,31 +325,24 @@ query {
 
 Never commit real JWTs, SMTP passwords, or `.env` files. Use the example environment files as templates.
 
-## GitHub Setup
+## GitHub Repository
 
-```bash
-git init
-git add .
-git commit -m "Task management app: GraphQL, MongoDB, Redis, Elasticsearch, React"
-git branch -M main
-git remote add origin https://github.com/<your-username>/<repo-name>.git
-git push -u origin main
-```
+Repository: https://github.com/amisha23-collab/task-manager
 
 ## Design Decisions
 
 - **GraphQL:** the UI asks for exactly the fields it needs through one endpoint, and the schema documents the API.
 - **Apollo Server + Express:** Express gives the standard Node server and a `/health` route; Apollo gives validation, errors and tooling.
 - **Service layer with injected dependencies:** keeps resolvers thin and makes testing simple.
-- **Cache the full task list per user and invalidate on write:** simple and always correct. Filtering and sorting happen in the browser, so one cache entry serves every view.
+- **Redis task caching:** caches each user's task list and invalidates the cache after create, update, or delete operations. The UI supports pagination, filtering, and sorting.
 - **Direct sync to Elasticsearch on each mutation** (an option the assignment allows) instead of a background worker: simpler and instant. A `reindex` script covers missed syncs.
 - **Elasticsearch instead of MongoDB text search:** better ranking, typo tolerance and partial matching, and it keeps heavy search work off the main database.
 - **Redis and Elasticsearch are best-effort:** they speed things up but are not the source of truth, so their failure should not stop users from saving tasks.
 - **JWT in localStorage:** simple for a single-page app. Trade-off: scripts on the page could read it, so a production app might prefer httpOnly cookies.
 - **Context API for auth:** only the user and login state are shared, so Redux would be overkill.
 - **Apollo Client with `refetchQueries`:** after any change the visible list is reloaded from the server, so the UI never drifts.
-- **Implemented extension:** in-app due-soon and overdue notifications are included. Email delivery depends on optional SMTP configuration. Further possible extensions include pagination, task priorities, and profile management.
-
+- **Implemented features:** in-app due-soon and overdue notifications, task priorities (High, Medium, Low), and pagination are supported. Email delivery depends on optional SMTP configuration. Further possible extensions include profile management.
+  
 ## Assessment Checklist
 
 | Requirement | Implemented? | Where |
@@ -355,4 +378,5 @@ git push -u origin main
 | Documented decisions | Yes | Design Decisions section |
 | In-app due-soon / overdue notifications | Yes | Notification model/service and frontend notification inbox |
 | Email reminders | Optional configuration | Requires valid SMTP settings; not enabled by default |
-| Pagination / priorities | Not documented as implemented | Optional future extensions |
+| Pagination | Yes | `getTasks` arguments and `PaginationInfo` |
+| Task priorities (High, Medium, Low) | Yes | `Task` type, create/update inputs, and task form |
