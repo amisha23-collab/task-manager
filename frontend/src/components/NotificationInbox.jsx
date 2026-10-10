@@ -1,5 +1,5 @@
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery } from '@apollo/client';
 import {
   GET_NOTIFICATIONS,
@@ -21,12 +21,12 @@ const formatDate = (value) => {
 
 export default function NotificationInbox() {
   const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef(null);
 
   const { data, loading, error, refetch } = useQuery(GET_NOTIFICATIONS, {
     variables: { unreadOnly: false },
     pollInterval: 60000,
     fetchPolicy: 'cache-and-network',
-    skip: false,
   });
 
   const [markRead, { loading: markingRead }] = useMutation(
@@ -37,31 +37,64 @@ export default function NotificationInbox() {
   );
 
   const notifications = data?.notifications ?? [];
+
   const unreadCount = notifications.filter(
     (notification) => !notification.readAt
   ).length;
 
+  // Refresh notifications whenever the dropdown opens.
   useEffect(() => {
     if (isOpen) {
       refetch();
     }
   }, [isOpen, refetch]);
 
+  // Close the dropdown when the user clicks outside or presses Escape.
+  useEffect(() => {
+    if (!isOpen) return undefined;
+
+    const handleOutsideClick = (event) => {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(event.target)
+      ) {
+        setIsOpen(false);
+      }
+    };
+
+    const handleEscape = (event) => {
+      if (event.key === 'Escape') {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleOutsideClick);
+    document.addEventListener('touchstart', handleOutsideClick);
+    document.addEventListener('keydown', handleEscape);
+
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+      document.removeEventListener('touchstart', handleOutsideClick);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [isOpen]);
+
   const handleMarkRead = async (id) => {
     try {
       await markRead({ variables: { id } });
     } catch {
-      // Apollo exposes the error through the mutation result.
+      // Apollo exposes mutation errors through its result.
     }
   };
 
   return (
-    <div className="relative">
+    <div ref={containerRef} className="relative">
       <button
         type="button"
         className="relative rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900"
         onClick={() => setIsOpen((open) => !open)}
         aria-expanded={isOpen}
+        aria-haspopup="dialog"
         aria-label={
           unreadCount > 0
             ? `Notifications, ${unreadCount} unread`
@@ -79,7 +112,11 @@ export default function NotificationInbox() {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 z-50 mt-2 w-[min(90vw,24rem)] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
+        <div
+          role="dialog"
+          aria-label="Notifications"
+          className="absolute right-0 z-50 mt-2 w-[min(90vw,24rem)] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl"
+        >
           <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
             <div>
               <h2 className="font-semibold text-slate-900">
